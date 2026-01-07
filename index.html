@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Melanoma Spotter — Colorful Dashboard</title>
+  <style>
+    /* ---------- Palette & reset ---------- */
+    :root{
+      --bg1: #f0f8ff;    /* pale blue */
+      --bg2: #fff5f8;    /* pale pink */
+      --muted: #617088;
+      --accent-blue: #2563eb;
+      --accent-pink: #ec4899;
+      --accent-green: #10b981;
+      --card: #ffffff;
+      --soft-border: rgba(16,42,67,0.06);
+      --glass: rgba(255,255,255,0.7);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,Arial;background:linear-gradient(135deg,var(--bg1),var(--bg2));color:#102a43}
+    .container{max-width:1200px;margin:28px auto;padding:18px}
+    .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+    .title{font-size:28px;font-weight:800;background:linear-gradient(90deg,var(--accent-blue),var(--accent-pink));-webkit-background-clip:text;color:transparent}
+    .subtitle{font-size:13px;color:var(--muted)}
+    .modeltag{font-size:13px;color:var(--muted)}
+
+    /* summary */
+    .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px}
+    .card{padding:14px;border-radius:12px;color:white;box-shadow:0 8px 24px rgba(16,42,67,0.06)}
+    .card.sky{background:linear-gradient(90deg,#60a5fa,#2563eb)}
+    .card.green{background:linear-gradient(90deg,#34d399,#059669)}
+    .card.pink{background:linear-gradient(90deg,#f472b6,#e11d48)}
+    .label{font-size:12px;opacity:0.95}
+    .value{font-size:22px;font-weight:700;margin-top:6px}
+
+    /* layout */
+    .grid{display:grid;grid-template-columns:2fr 1fr;gap:20px}
+    .panel{background:var(--card);padding:16px;border-radius:12px;border:1px solid var(--soft-border);box-shadow:0 8px 24px rgba(16,42,67,0.04)}
+    .drop-area{border-radius:10px;padding:24px;border:2px dashed rgba(37,99,235,0.12);background:linear-gradient(180deg,rgba(37,99,235,0.03),rgba(236,72,153,0.02));text-align:center;cursor:pointer;transition:all .12s}
+    .drop-area.dragover{box-shadow:0 0 0 6px rgba(37,99,235,0.06);transform:translateY(-2px)}
+    .drop-area h3{margin:8px 0;font-size:18px;color:var(--accent-blue)}
+    .drop-area p{color:var(--muted);font-size:13px}
+
+    .preview-wrap{display:flex;gap:12px;align-items:flex-start;margin-top:16px}
+    .preview-box{flex:1;min-height:320px;border-radius:10px;overflow:hidden;border:1px solid rgba(8,10,12,0.04);display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#ffffff,#fff7fb)}
+    .preview-box img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;pointer-events:none;user-select:none}
+
+    .meta-panel{width:320px;padding:14px;border-radius:10px;background:linear-gradient(180deg,#fff,#fff7fb);border:1px solid rgba(8,10,12,0.03)}
+    .meta-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+    .muted{color:var(--muted);font-size:13px}
+    .btn{padding:8px 12px;border-radius:8px;border:none;cursor:pointer;font-weight:700}
+    .btn-outline{background:transparent;border:1px solid rgba(16,42,67,0.06);color:#102a43}
+    .btn-primary{background:linear-gradient(90deg,var(--accent-blue),var(--accent-pink));color:white;box-shadow:0 6px 18px rgba(37,99,235,0.12)}
+
+    .result-card{margin-top:12px;padding:12px;border-radius:10px;background:linear-gradient(180deg,#f8fafc,#ffffff);border:1px solid rgba(8,10,12,0.03)}
+    .result-card .title{font-weight:800;color:var(--accent-blue)}
+    .result-card .conf{font-weight:700;color:var(--accent-green);font-size:18px}
+
+    /* gallery */
+    .gallery{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+    .gallery .item{display:flex;gap:10px;align-items:center;padding:10px;border-radius:8px;background:#fff;border:1px solid rgba(8,10,12,0.03)}
+    .thumb{width:78px;height:56px;overflow:hidden;border-radius:6px;background:#f3f4f6}
+    .thumb img{width:100%;height:100%;object-fit:cover}
+    .badge{padding:6px 10px;border-radius:8px;font-weight:800;font-size:13px}
+    .badge.good{background:#dcfce7;color:#065f46}
+    .badge.warn{background:#fff7ed;color:#92400e}
+    .badge.bad{background:#fff1f2;color:#7f1d1d}
+
+    .small{font-size:12px;color:var(--muted)}
+    footer{margin-top:20px;text-align:center;color:var(--muted);font-size:12px}
+    @media(max-width:900px){ .grid{grid-template-columns:1fr} .meta-panel{width:100%} .preview-wrap{flex-direction:column} }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <div class="title">Melanoma Spotter</div>
+        <div class="subtitle">Quickly analyze skin lesion photos using our hybrid model</div>
+      </div>
+      <div class="modeltag">Model: <strong id="modelName">Hybrid VGG16+DenseNet</strong></div>
+    </div>
+
+    <!-- summary -->
+    <div class="summary">
+      <div class="card sky"><div class="label">Total scans</div><div id="sumTotal" class="value">0</div></div>
+      <div class="card green"><div class="label">Last diagnosis</div><div id="sumLast" class="value">—</div></div>
+      <div class="card pink"><div class="label">Avg confidence</div><div id="sumAvg" class="value">—</div></div>
+    </div>
+
+    <!-- main grid -->
+    <div class="grid">
+      <div class="panel">
+        <div id="dropArea" class="drop-area" title="Drop image or click to browse">
+          <h3>Drag & drop your image here</h3>
+          <p class="small">or click to browse • Supported: JPG / PNG • Paste from clipboard (Ctrl+V) supported</p>
+          <input id="fileInput" type="file" accept="image/*" style="display:none" />
+        </div>
+
+        <div id="previewArea" style="display:none" class="preview-wrap">
+          <div class="preview-box"><img id="previewImg" src="" alt="preview" draggable="false" /></div>
+
+          <div class="meta-panel">
+            <div class="meta-row">
+              <div>
+                <div class="muted">Selected</div>
+                <div id="filename" style="font-weight:700"></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <button id="clearBtn" class="btn btn-outline">Clear</button>
+                <button id="uploadBtn" class="btn btn-primary">Upload</button>
+              </div>
+            </div>
+
+            <div style="margin-top:8px">
+              <div class="muted">Pro-tip</div>
+              <div class="small" style="margin-top:6px">For best results use 224×224 or larger dermatoscopic close-ups; avoid heavy compression.</div>
+            </div>
+
+            <div id="resultBox" class="result-card">
+              <div class="muted">Result</div>
+              <div id="resultText" style="margin-top:8px;color:#253858">No analysis run yet — press Upload to analyze this image.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside>
+        <div class="panel">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div style="font-weight:800">Recent Scans</div>
+            <div class="small" id="galleryCount">0 items</div>
+          </div>
+
+          <div id="history" class="gallery">
+            <div class="small" style="color:var(--muted)">No scans yet — run an analysis to populate history</div>
+          </div>
+
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <button id="uploadFileBtn" class="btn btn-outline">Choose File</button>
+            <button id="clearAllBtn" class="btn btn-outline">Clear Selection</button>
+            <button id="clearHistoryBtn" class="btn btn-primary">Clear History</button>
+          </div>
+
+          <div style="margin-top:12px" class="small">Melanoma Spotter — For research use only.</div>
+        </div>
+      </aside>
+    </div>
+
+    <footer>Melanoma Spotter © 2025 — For research use only.</footer>
+  </div>
+
+<script>
+  /* ---- preserved IDs & behavior; drag/drop fixed ---- */
+  const API_ENDPOINT = '/predict'; // unchanged, point to your backend
+
+  const dropArea = document.getElementById('dropArea');
+  const fileInput = document.getElementById('fileInput');
+  const previewArea = document.getElementById('previewArea');
+  const previewImg = document.getElementById('previewImg');
+  const filenameLabel = document.getElementById('filename');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const uploadFileBtn = document.getElementById('uploadFileBtn');
+  const clearAllBtn = document.getElementById('clearAllBtn');
+  const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+  const resultText = document.getElementById('resultText');
+  const historyDiv = document.getElementById('history');
+  const galleryCount = document.getElementById('galleryCount');
+
+  const HISTORY_KEY = 'derm_history';
+  let currFile = null;
+  let history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+
+  /* Helper: human-readable bytes */
+  function bytesToHuman(b){
+    if (b == null) return '';
+    if (b < 1024) return b + ' B';
+    if (b < 1024*1024) return (b/1024).toFixed(1)+' KB';
+    return (b/(1024*1024)).toFixed(2)+' MB';
+  }
+
+  /* ---------- Drag/drop robustness (global prevention + dropArea handlers) ---------- */
+  // Prevent browser from opening files dropped outside the drop area
+  window.addEventListener('dragover', (e) => { e.preventDefault(); }, { passive: false });
+  window.addEventListener('drop', (e) => { e.preventDefault(); }, { passive: false });
+
+  function setDropActive(active){
+    if(active) dropArea.classList.add('dragover');
+    else dropArea.classList.remove('dragover');
+  }
+
+  // Ensure preview image doesn't interfere with drops
+  previewImg.setAttribute('draggable', 'false');
+
+  dropArea.addEventListener('dragenter', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    setDropActive(true);
+  });
+
+  dropArea.addEventListener('dragover', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    try { e.dataTransfer.dropEffect = 'copy'; } catch(_) {}
+    setDropActive(true);
+  }, { passive: false });
+
+  dropArea.addEventListener('dragleave', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    // Remove active only when leaving the element bounds
+    const rect = dropArea.getBoundingClientRect();
+    const x = e.clientX, y = e.clientY;
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) setDropActive(false);
+  });
+
+  dropArea.addEventListener('drop', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    setDropActive(false);
+    const files = e.dataTransfer && e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+    const f = files[0];
+    setFileFromInput(f);
+  });
+
+  /* ---------- File selection (browse & paste) ---------- */
+  uploadFileBtn.addEventListener('click', ()=> fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) setFileFromInput(f);
+    fileInput.value = '';
+  });
+
+  // paste from clipboard
+  window.addEventListener('paste', (e) => {
+    const items = e.clipboardData && e.clipboardData.items;
+    if(!items) return;
+    for(const it of items){
+      if(it.kind === 'file'){
+        const file = it.getAsFile();
+        if(file) { setFileFromInput(file); break; }
+      }
+    }
+  });
+
+  function setFileFromInput(f){
+    if(!f) return;
+    if(!f.type || !f.type.startsWith('image/')) { alert('Please upload an image (jpg, png).'); return; }
+    currFile = f;
+    const url = URL.createObjectURL(f);
+    previewImg.src = url;
+    filenameLabel.textContent = f.name + ' • ' + bytesToHuman(f.size);
+    previewArea.style.display = 'flex';
+    resultText.innerHTML = 'Ready — press Upload to analyze this image.';
+  }
+
+  /* ---------- History rendering & summary ---------- */
+  function renderHistory(){
+    historyDiv.innerHTML = '';
+    if(history.length === 0){
+      historyDiv.innerHTML = '<div class="small" style="color:var(--muted)">No scans yet — run an analysis to populate history</div>';
+      galleryCount.textContent = '0 items';
+      return;
+    }
+    history.forEach(item => {
+      const node = document.createElement('div'); node.className = 'item';
+      const conf = typeof item.confidence === 'number' ? item.confidence : (item.predicted_prob ?? 0);
+      let badgeHtml = `<div class="badge bad">${Math.round((conf||0)*100)}%</div>`;
+      if(conf>0.8) badgeHtml = `<div class="badge good">${Math.round(conf*100)}%</div>`;
+      else if(conf>0.5) badgeHtml = `<div class="badge warn">${Math.round(conf*100)}%</div>`;
+
+      node.innerHTML = `
+        <div class="thumb"><img src="${item.thumb || item.preview}" alt="thumb"></div>
+        <div style="flex:1"><div style="font-weight:700">${item.label || item.name || 'Unknown'}</div><div class="small">${new Date(item.ts).toLocaleString()}</div></div>
+        <div style="text-align:right">${badgeHtml}<div style="margin-top:8px"><button class="btn btn-outline view-btn" data-id="${item.id}">View</button></div></div>
+      `;
+      historyDiv.appendChild(node);
+      node.querySelector('.view-btn').addEventListener('click', () => {
+        previewImg.src = item.thumb || item.preview;
+        filenameLabel.textContent = item.label || item.name;
+        previewArea.style.display = 'flex';
+        currFile = null;
+        showResult(item);
+      });
+    });
+    galleryCount.textContent = `${history.length} items`;
+  }
+
+  function updateSummary(){
+    document.getElementById('sumTotal').textContent = history.length;
+    document.getElementById('sumLast').textContent = history[0]?.label || '—';
+    if(history.length){
+      const avg = history.reduce((s,h)=> s + (typeof h.confidence === 'number' ? h.confidence : (h.predicted_prob ?? 0)), 0) / history.length;
+      document.getElementById('sumAvg').textContent = Math.round(avg*100) + '%';
+    } else document.getElementById('sumAvg').textContent = '—';
+  }
+
+  /* ---------- Buttons: clear, clear history ---------- */
+  clearBtn.addEventListener('click', ()=> {
+    currFile = null;
+    previewImg.src = '';
+    previewArea.style.display = 'none';
+    filenameLabel.textContent = '';
+    resultText.innerHTML = 'No analysis run yet — press Upload to analyze this image.';
+  });
+
+  clearAllBtn.addEventListener('click', ()=> {
+    currFile = null;
+    previewImg.src = '';
+    previewArea.style.display = 'none';
+    filenameLabel.textContent = '';
+    resultText.innerHTML = 'No analysis run yet — press Upload to analyze this image.';
+  });
+
+  clearHistoryBtn.addEventListener('click', ()=> {
+    if(!confirm('Clear entire history?')) return;
+    history = [];
+    localStorage.removeItem(HISTORY_KEY);
+    renderHistory();
+    updateSummary();
+  });
+
+  /* ---------- Upload/analyze ---------- */
+  uploadBtn.addEventListener('click', async ()=> {
+    if(!currFile){ alert('Please choose an image first.'); return; }
+    resultText.innerHTML = 'Analyzing...';
+    const fd = new FormData();
+    fd.append('image', currFile);
+    try{
+      const res = await fetch(API_ENDPOINT, { method:'POST', body:fd });
+      if(!res.ok){
+        const txt = await res.text().catch(()=>null);
+        console.error('Server error', res.status, txt);
+        resultText.innerHTML = 'Server error';
+        return;
+      }
+      const payload = await res.json();
+
+      // payload may contain: accepted (bool), predicted_class, predicted_prob, label, confidence, explanation_url, hybrid_probs
+      if(payload.accepted === false){
+        resultText.innerHTML = `<div style="color:#b45309">Rejected by pre-check: ${payload.reject_reason || 'low skin confidence'}</div>`;
+      } else {
+        const label = payload.predicted_class || payload.label || payload.prediction || currFile.name;
+        const conf = (typeof payload.predicted_prob === 'number') ? payload.predicted_prob : (typeof payload.confidence === 'number' ? payload.confidence : null);
+
+        // show result
+        let html = `<div style="font-size:13px;color:var(--muted)">Prediction</div><div style="font-size:20px;font-weight:800;margin-top:6px">${label}</div>`;
+        html += `<div class="small" style="margin-top:8px">Confidence: ${conf !== null ? conf.toFixed(3) : '—'}</div>`;
+        if(payload.hybrid_probs) html += `<div style="margin-top:8px;font-size:12px;color:var(--muted)">Raw probs: ${payload.hybrid_probs.map(x=>x.toFixed(3)).join(', ')}</div>`;
+        resultText.innerHTML = html;
+
+        // heatmap if provided
+        if(payload.explanation_url || payload.heatmap) {
+          // create & show small inline heatmap under result
+          const url = payload.explanation_url || payload.heatmap;
+          // append image element (if not already appended)
+          let existing = document.querySelector('#resultBox img.heatmap-inline');
+          if(!existing){
+            existing = document.createElement('img');
+            existing.className = 'heatmap-inline';
+            existing.style.display = 'block';
+            existing.style.maxWidth = '100%';
+            existing.style.marginTop = '10px';
+            existing.style.borderRadius = '8px';
+            document.getElementById('resultBox').appendChild(existing);
+          }
+          existing.src = url;
+          existing.style.display = 'block';
+        }
+
+        // store history
+        const entry = {
+          id: Date.now(),
+          ts: new Date().toISOString(),
+          label,
+          confidence: (typeof conf === 'number') ? conf : null,
+          thumb: URL.createObjectURL(currFile),
+          payload
+        };
+        history.unshift(entry);
+        if(history.length > 100) history.pop();
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+        renderHistory();
+        updateSummary();
+      }
+
+    } catch(e){
+      console.error(e);
+      resultText.innerHTML = 'Upload failed: ' + (e.message || e);
+    }
+  });
+
+  /* ---------- showResult helper (for history open) ---------- */
+  function showResult(item){
+    if(item.payload && item.payload.accepted === false){
+      resultText.innerHTML = `<div style="color:#b45309">Rejected by pre-check: ${item.payload.reject_reason || 'low skin confidence'}</div>`;
+      return;
+    }
+    const label = item.payload?.predicted_class || item.label || item.name || 'Unknown';
+    const conf = item.payload?.predicted_prob ?? item.confidence ?? null;
+    let html = `<div style="font-size:13px;color:var(--muted)">Prediction</div><div style="font-size:20px;font-weight:800;margin-top:6px">${label}</div>`;
+    html += `<div class="small" style="margin-top:8px">Confidence: ${conf !== null ? conf.toFixed(3) : '—'}</div>`;
+    if(item.payload?.hybrid_probs) html += `<div style="margin-top:8px;font-size:12px;color:var(--muted)">Raw probs: ${item.payload.hybrid_probs.map(x=>x.toFixed(3)).join(', ')}</div>`;
+    resultText.innerHTML = html;
+  }
+
+  /* ---------- init ---------- */
+  renderHistory();
+  updateSummary();
+
+</script>
+</body>
+</html>
